@@ -9,6 +9,7 @@ import { logger } from '../utils/logger.utils';
 import { ConversationService } from './conversation.service';
 import { EscalationService } from './escalation.service'; // F-06
 import { TemplateService } from './template.service'; // F-07
+import { detectLanguage, type SupportedLanguage } from '../utils/language-detector'; // F-10
 
 const conversationService = new ConversationService();
 const escalationService = new EscalationService(); // F-06
@@ -23,6 +24,7 @@ interface ChatRequest {
 
 interface ChatResponse {
   conversationId: string;
+  language: string; // F-10: 대화 언어
   userMessage: {
     id: string;
     content: string;
@@ -56,6 +58,8 @@ export class ChatService {
 
     // 2. Conversation 확인 또는 생성
     let conversation;
+    let detectedLanguage: SupportedLanguage = 'ko'; // F-10: 기본 언어
+
     if (conversationId) {
       // 기존 대화 조회
       conversation = await prisma.conversation.findUnique({
@@ -74,16 +78,26 @@ export class ChatService {
       ) {
         throw new AppError(403, '대화에 접근할 권한이 없습니다');
       }
+
+      // F-10: 기존 대화의 언어 사용 (재감지 안 함)
+      detectedLanguage = conversation.language as SupportedLanguage;
     } else {
+      // F-10: 신규 대화 → 언어 감지
+      const { language, confidence } = detectLanguage(message);
+      detectedLanguage = language;
+
+      logger.info(`언어 감지: ${language} (신뢰도: ${confidence})`);
+
       // 신규 대화 생성
       conversation = await prisma.conversation.create({
         data: {
           userId: userId || null,
           sessionId: sessionId || null,
+          language: detectedLanguage, // F-10: 감지된 언어 저장
         },
         include: { category: true },
       });
-      logger.info(`신규 대화 생성: ${conversation.id}`);
+      logger.info(`신규 대화 생성: ${conversation.id} (언어: ${detectedLanguage})`);
     }
 
     // F-06: 사용자 명시적 상담원 요청 감지
@@ -134,11 +148,12 @@ export class ChatService {
       }))
       .filter((msg) => msg.role === 'user' || msg.role === 'assistant'); // system 메시지 제외
 
-    // 5. 템플릿 매칭 시도 (F-07)
+    // 5. 템플릿 매칭 시도 (F-07, F-10: 언어 전달)
     const startTime = Date.now();
     const matchedTemplate = await templateService.matchTemplate(
       message,
-      conversation.categoryId
+      conversation.categoryId,
+      detectedLanguage // F-10: 언어 전달
     );
     const matchTimeMs = Date.now() - startTime;
 
@@ -164,10 +179,17 @@ export class ChatService {
     } else {
       // 템플릿 매칭 실패 → 기존 OpenAI API 호출 (폴백)
       try {
+        // F-10: 언어에 맞는 카테고리 이름 선택
+        const categoryName =
+          detectedLanguage === 'en'
+            ? conversation.category?.nameEn || conversation.category?.name
+            : conversation.category?.nameKo || conversation.category?.name;
+
         const result = await generateAnswer(
           conversationHistory,
           message,
-          conversation.category?.name
+          categoryName,
+          detectedLanguage // F-10: 언어 전달
         );
 
         assistantContent = result.content;
@@ -190,10 +212,10 @@ export class ChatService {
           fallbackReason: '템플릿 매칭 실패',
         };
       } catch (error: any) {
-        // AI 폴백 실패 시 시스템 메시지
+        // AI 폴백 실패 시 시스템 메시지 (F-10: 언어별 메시지)
         logger.error('답변 생성 실패, 시스템 메시지 반환:', error.message);
-        assistantContent =
-          '죄송합니다. 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주시거나, 긴급한 경우 상담원 연결을 요청해주세요.';
+        const { prompts } = require('../lib/prompts');
+        assistantContent = prompts[detectedLanguage].fallback;
         needsEscalation = true;
         assistantSender = MessageSender.system;
         responseTimeMs = Date.now() - startTime;
@@ -271,6 +293,7 @@ export class ChatService {
     // 8. 결과 반환
     return {
       conversationId: conversation.id,
+      language: detectedLanguage, // F-10: 대화 언어 포함
       userMessage: {
         id: userMessage.id,
         content: userMessage.content,

@@ -237,11 +237,12 @@ export class TemplateService {
   }
 
   /**
-   * 템플릿 매칭 (키워드 기반)
+   * 템플릿 매칭 (키워드 기반, F-10: 다국어 지원)
    */
   async matchTemplate(
     userMessage: string,
-    categoryId?: string | null
+    categoryId?: string | null,
+    language: 'ko' | 'en' = 'ko' // F-10: 언어 파라미터 추가 (하위 호환성)
   ): Promise<MatchedTemplate | null> {
     const startTime = Date.now();
 
@@ -249,8 +250,8 @@ export class TemplateService {
       // 1. 메시지 정규화
       const normalizedMessage = userMessage.toLowerCase().trim();
 
-      // 2. 활성 템플릿 조회 (캐시 활용)
-      const activeTemplates = await this.getActiveTemplates();
+      // 2. 활성 템플릿 조회 (F-10: 언어 필터 추가)
+      const activeTemplates = await this.getActiveTemplates(language);
 
       // 3. 매칭 점수 계산
       const candidates = activeTemplates
@@ -315,21 +316,20 @@ export class TemplateService {
   }
 
   /**
-   * 활성 템플릿 조회 (캐시 활용)
+   * 활성 템플릿 조회 (캐시 활용, F-10: 다국어 지원)
    */
-  private async getActiveTemplates(): Promise<
+  private async getActiveTemplates(language?: 'ko' | 'en'): Promise<
     (FaqTemplate & { category?: { name: string } | null })[]
   > {
-    // 캐시 유효성 확인
-    if (cachedTemplates && Date.now() < cacheExpiry) {
-      return cachedTemplates;
-    }
+    // F-10: 언어별 캐시 무효화 (간단히 캐시 사용 안 함, 언어별 캐시는 복잡도 증가)
+    // 향후 개선 가능: 언어별 캐시 분리
 
-    // DB 조회
-    cachedTemplates = await prisma.faqTemplate.findMany({
+    // DB 조회 (F-10: 언어 필터 추가)
+    const templates = await prisma.faqTemplate.findMany({
       where: {
         isActive: true,
         deletedAt: null,
+        language: language || 'ko', // F-10: 언어 필터
       },
       include: {
         category: {
@@ -339,11 +339,12 @@ export class TemplateService {
       orderBy: { priority: 'desc' },
     });
 
-    cacheExpiry = Date.now() + CACHE_TTL;
+    // F-10: 언어별 캐시는 구현하지 않음 (단순화)
+    // 캐시 사용 안 함 (언어가 다르면 다른 결과 반환되어야 하므로)
 
-    logger.info(`템플릿 캐시 갱신 완료 (${cachedTemplates.length}개)`);
+    logger.info(`템플릿 조회 완료 (언어: ${language}, ${templates.length}개)`);
 
-    return cachedTemplates;
+    return templates;
   }
 
   /**

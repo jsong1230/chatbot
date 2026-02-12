@@ -25,6 +25,12 @@ enum SessionRole {
   anonymous
 }
 
+// 지원 언어 Enum (F-10 다국어 지원)
+enum Language {
+  ko  // 한국어
+  en  // 영어
+}
+
 // 사용자 테이블
 model User {
   id                 String    @id @default(uuid())
@@ -73,6 +79,8 @@ model Session {
 model Category {
   id            String         @id @default(uuid())
   name          String         @unique
+  nameKo        String         @default("") @unique @map("name_ko") // F-10: 한국어 이름
+  nameEn        String         @default("") @unique @map("name_en") // F-10: 영어 이름
   slug          String         @unique
   description   String?
   isActive      Boolean        @default(true) @map("is_active")
@@ -112,6 +120,9 @@ model Conversation {
   // F-09: 피드백 관련 필드
   hasFeedback               Boolean   @default(false) @map("has_feedback")
 
+  // F-10: 다국어 지원
+  language                  Language  @default(ko)
+
   createdAt                 DateTime  @default(now()) @map("created_at")
   updatedAt                 DateTime  @updatedAt @map("updated_at")
 
@@ -140,6 +151,10 @@ model Conversation {
 
   // F-09 신규 인덱스
   @@index([hasFeedback], name: "idx_conversation_has_feedback")
+
+  // F-10 신규 인덱스 (다국어 지원)
+  @@index([language], name: "idx_conversation_language")
+  @@index([language, createdAt, deletedAt], name: "idx_conversation_language_analytics")
 
   @@map("conversation")
 }
@@ -244,7 +259,7 @@ model Feedback {
 // FAQ 템플릿 테이블 (F-07)
 model FaqTemplate {
   id           String    @id @default(uuid())
-  question     String    @unique
+  question     String
   answer       String    @db.Text
   keywords     String[]  // PostgreSQL 배열 타입
   categoryId   String?   @map("category_id")
@@ -256,6 +271,9 @@ model FaqTemplate {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
+  // F-10: 다국어 지원
+  language     Language  @default(ko)
+
   // Relations
   category     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
@@ -264,6 +282,13 @@ model FaqTemplate {
   @@index([categoryId], name: "idx_template_category_id")
   @@index([priority], name: "idx_template_priority")
   @@index([deletedAt], name: "idx_template_deleted_at")
+
+  // F-10 신규 인덱스 (다국어 지원)
+  @@index([language, isActive], name: "idx_template_language_active")
+  @@index([categoryId, language], name: "idx_template_category_language")
+
+  // F-10: 복합 UNIQUE 제약 (같은 질문이라도 언어별로 중복 가능)
+  @@unique([question, language], name: "unique_question_per_language")
 
   @@map("faq_template")
 }
