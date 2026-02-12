@@ -1,0 +1,17 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-postgres", "${DATABASE_URL}"],
+      "description": "PostgreSQL DB 스키마 조회 + 읽기 전용 쿼리"
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-chrome-devtools"],
+      "description": "Chrome DevTools 접근 (콘솔, 네트워크, DOM 검사)"
+    }
+  }
+}
