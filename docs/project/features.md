@@ -14,7 +14,7 @@
 | F-04 | 대화 이력 저장 및 조회 | 모든 대화를 DB에 저장하고 검색 | Must | F-01 | PG-1 | conversation, message | M1 | ✅ 완료 |
 | F-05 | 실시간 챗봇 UI | WebSocket 기반 실시간 채팅 인터페이스 | Must | F-02, F-03 | - | ChatWindow 컴포넌트, WebSocket | M2 | ✅ 완료 |
 | F-06 | 상담원 에스컬레이션 | 처리 불가능한 문의를 상담원에게 전달 | Must | F-02, F-04 | - | escalation, conversation | M2 | ✅ 완료 |
-| F-07 | 답변 템플릿 관리 | FAQ 답변을 관리자가 직접 관리 (CRUD) | Should | F-01 | - | faq_template | M3 | 🔄 진행중 |
+| F-07 | 답변 템플릿 관리 | FAQ 답변을 관리자가 직접 관리 (CRUD) | Should | F-01 | - | faq_template | M3 | ✅ 완료 |
 | F-08 | 관리자 대시보드 | 통계, 분류 현황, 에스컬레이션 비율 시각화 | Should | F-04, F-06 | PG-2 | Dashboard 컴포넌트, analytics_service | M3 | ✅ 완료 |
 | F-09 | 고객 만족도 피드백 | 대화 종료 후 만족도 평가 (좋음/나쁨) | Should | F-04 | PG-2 | feedback, conversation | M3 | ✅ 완료 |
 | F-10 | 다국어 지원 | 한국어/영어 자동 감지 및 답변 | Could | F-02, F-03 | - | openai_service, i18n | M4 | ⏳ 대기 |
