@@ -1,0 +1,269 @@
+// Prisma 스키마 정의
+// F-01 사용자 인증 기능
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 사용자 역할 Enum (회원)
+enum UserRole {
+  customer
+  agent
+  admin
+}
+
+// 세션 역할 Enum (회원 + 익명)
+enum SessionRole {
+  customer
+  agent
+  admin
+  anonymous
+}
+
+// 사용자 테이블
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  passwordHash       String    @map("password_hash")
+  name               String?
+  role               UserRole  @default(customer)
+  lockedUntil        DateTime? @map("locked_until")
+  failedLoginCount   Int       @default(0) @map("failed_login_count")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  sessions           Session[]
+  conversations      Conversation[]
+  assignedEscalations Escalation[] // F-06: 상담원이 할당받은 에스컬레이션
+  feedbacks          Feedback[] // F-09: 사용자가 제출한 피드백
+
+  @@index([email], name: "idx_user_email")
+  @@map("user")
+}
+
+// 세션 테이블 (Refresh Token 및 익명 세션 관리)
+model Session {
+  id            String      @id @default(uuid())
+  userId        String?     @map("user_id")
+  refreshToken  String?     @unique @map("refresh_token")
+  tokenId       String?     @unique @map("token_id")
+  role          SessionRole
+  expiresAt     DateTime    @map("expires_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  user          User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  feedbacks     Feedback[] // F-09: 익명 세션이 제출한 피드백
+
+  @@index([userId], name: "idx_session_user_id")
+  @@index([refreshToken], name: "idx_session_refresh_token")
+  @@index([expiresAt], name: "idx_session_expires_at")
+  @@map("session")
+}
+
+// 카테고리 테이블 (F-02 문의 자동 분류)
+model Category {
+  id            String         @id @default(uuid())
+  name          String         @unique
+  slug          String         @unique
+  description   String?
+  isActive      Boolean        @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  conversations Conversation[]
+  faqTemplates  FaqTemplate[] // F-07: 템플릿 관계 추가
+
+  @@index([isActive], name: "idx_category_is_active")
+  @@index([slug], name: "idx_category_slug")
+  @@map("category")
+}
+
+// 대화 세션 테이블 (F-02, F-03, F-04 공유)
+model Conversation {
+  id                        String    @id @default(uuid())
+  userId                    String?   @map("user_id")
+  sessionId                 String?   @map("session_id")
+
+  // F-02: 분류 관련 필드
+  categoryId                String?   @map("category_id")
+  classificationConfidence  Decimal?  @db.Decimal(3, 2) @map("classification_confidence")
+  classificationReason      String?   @db.Text @map("classification_reason")
+  needsEscalation           Boolean   @default(false) @map("needs_escalation")
+  escalationReason          String?   @db.Text @map("escalation_reason")
+  classifiedAt              DateTime? @map("classified_at")
+  classificationError       String?   @db.Text @map("classification_error")
+  reclassifiedCount         Int       @default(0) @map("reclassified_count")
+
+  // F-04: 대화 이력 관련 필드
+  deletedAt                 DateTime? @map("deleted_at")
+  lastMessageAt             DateTime? @map("last_message_at")
+  messageCount              Int       @default(0) @map("message_count")
+
+  // F-09: 피드백 관련 필드
+  hasFeedback               Boolean   @default(false) @map("has_feedback")
+
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user                      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session                   Session?  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  category                  Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  messages                  Message[] // F-03: 메시지 관계
+  escalation                Escalation? // F-06: 1:1 관계
+  feedback                  Feedback? // F-09: 1:1 관계
+
+  // 기존 인덱스 (F-02, F-03)
+  @@index([categoryId], name: "idx_conversation_category_id")
+  @@index([needsEscalation], name: "idx_conversation_needs_escalation")
+  @@index([userId], name: "idx_conversation_user_id")
+  @@index([sessionId], name: "idx_conversation_session_id")
+
+  // F-04 신규 인덱스
+  @@index([deletedAt], name: "idx_conversation_deleted_at")
+  @@index([lastMessageAt], name: "idx_conversation_last_message_at")
+  @@index([userId, deletedAt], name: "idx_conversation_user_id_deleted_at")
+
+  // F-08 신규 인덱스 (관리자 대시보드 통계 쿼리 최적화)
+  @@index([createdAt, deletedAt], name: "idx_conversation_created_at_deleted_at")
+  @@index([categoryId, createdAt, deletedAt], name: "idx_conversation_category_analytics")
+
+  // F-09 신규 인덱스
+  @@index([hasFeedback], name: "idx_conversation_has_feedback")
+
+  @@map("conversation")
+}
+
+// 메시지 송신자 Enum (F-03, F-04)
+enum MessageSender {
+  user
+  assistant
+  system
+}
+
+// 메시지 테이블 (F-03, F-04 공유)
+model Message {
+  id              String        @id @default(uuid())
+  conversationId  String        @map("conversation_id")
+  sender          MessageSender
+  content         String        @db.Text
+  metadata        Json?
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  // F-04: Soft delete 필드
+  deletedAt       DateTime?     @map("deleted_at")
+
+  // Relations
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  // 기존 인덱스 (F-03)
+  @@index([conversationId, createdAt], name: "idx_message_conversation_id_created_at")
+
+  // F-04 신규 인덱스
+  @@index([deletedAt], name: "idx_message_deleted_at")
+
+  // F-08 신규 인덱스 (평균 응답 시간 계산 최적화)
+  @@index([conversationId, sender, createdAt], name: "idx_message_response_time")
+
+  @@map("message")
+}
+
+// 에스컬레이션 상태 Enum (F-06)
+enum EscalationStatus {
+  pending   // 미할당 (상담원 배정 대기)
+  assigned  // 할당됨 (상담원 처리 중)
+  resolved  // 해결 완료
+}
+
+// 피드백 평가 Enum (F-09)
+enum FeedbackRating {
+  positive  // 긍정 평가
+  negative  // 부정 평가
+}
+
+// 에스컬레이션 테이블 (F-06)
+model Escalation {
+  id              String            @id @default(uuid())
+  conversationId  String            @unique @map("conversation_id")
+  reason          String            @db.Text
+  status          EscalationStatus  @default(pending)
+  agentId         String?           @map("agent_id")
+  priority        Int               @default(0)
+  version         Int               @default(0)
+  escalatedAt     DateTime          @default(now()) @map("escalated_at")
+  assignedAt      DateTime?         @map("assigned_at")
+  resolvedAt      DateTime?         @map("resolved_at")
+  resolutionNote  String?           @db.Text @map("resolution_note")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  conversation    Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  agent           User?             @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([status], name: "idx_escalation_status")
+  @@index([agentId, status], name: "idx_escalation_agent_id_status")
+  @@index([escalatedAt], name: "idx_escalation_escalated_at")
+  @@index([conversationId], name: "idx_escalation_conversation_id")
+  @@map("escalation")
+}
+
+// 피드백 테이블 (F-09)
+model Feedback {
+  id              String          @id @default(uuid())
+  conversationId  String          @unique @map("conversation_id") // 1:1 관계, 중복 방지
+  userId          String?         @map("user_id") // 회원 사용자 (NULL 가능, 익명 세션 시)
+  sessionId       String?         @map("session_id") // 익명 세션 (NULL 가능, 회원 시)
+  rating          FeedbackRating  // Enum: positive | negative
+  comment         String?         @db.Text // 최대 1000자, XSS 방지 필요
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  conversation    Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user            User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  session         Session?        @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  // 인덱스 (성능 최적화)
+  @@index([rating], name: "idx_feedback_rating")
+  @@index([createdAt], name: "idx_feedback_created_at")
+  @@index([rating, createdAt], name: "idx_feedback_rating_created_at") // 통계 쿼리 최적화
+  @@map("feedback")
+}
+
+// FAQ 템플릿 테이블 (F-07)
+model FaqTemplate {
+  id           String    @id @default(uuid())
+  question     String    @unique
+  answer       String    @db.Text
+  keywords     String[]  // PostgreSQL 배열 타입
+  categoryId   String?   @map("category_id")
+  priority     Int       @default(0)
+  isActive     Boolean   @default(true) @map("is_active")
+  usageCount   Int       @default(0) @map("usage_count")
+  lastUsedAt   DateTime? @map("last_used_at")
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  category     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // 인덱스
+  @@index([isActive], name: "idx_template_is_active")
+  @@index([categoryId], name: "idx_template_category_id")
+  @@index([priority], name: "idx_template_priority")
+  @@index([deletedAt], name: "idx_template_deleted_at")
+
+  @@map("faq_template")
+}
