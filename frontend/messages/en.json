@@ -1,0 +1,36 @@
+{
+  "chat": {
+    "title": "Chatbot Service",
+    "inputPlaceholder": "Enter your message",
+    "sendButton": "Send",
+    "loadingMessage": "Generating response...",
+    "contactAgent": "Contact Agent",
+    "languageToggle": "Change Language",
+    "endConversation": "End Conversation",
+    "exampleQuestions": "Example Questions",
+    "connecting": "Connecting...",
+    "reconnecting": "Reconnecting...",
+    "disconnected": "Disconnected",
+    "connected": "Connected",
+    "typing": "Typing..."
+  },
+  "language": {
+    "korean": "한국어",
+    "english": "English",
+    "changeLanguage": "Change Language",
+    "languageChanged": "Language changed to {language}"
+  },
+  "errors": {
+    "networkError": "A network error occurred",
+    "authRequired": "Login required",
+    "messageTooShort": "Message must be at least 5 characters",
+    "messageTooLong": "Message must be less than 2000 characters",
+    "sendFailed": "Failed to send message",
+    "loadFailed": "Failed to load conversation",
+    "languageChangeFailed": "Failed to change language"
+  },
+  "feedback": {
+    "alreadySubmitted": "You have already rated this conversation",
+    "thankYou": "Thank you for your feedback!"
+  }
+}
