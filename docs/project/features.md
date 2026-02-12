@@ -17,7 +17,7 @@
 | F-07 | 답변 템플릿 관리 | FAQ 답변을 관리자가 직접 관리 (CRUD) | Should | F-01 | - | faq_template | M3 | ✅ 완료 |
 | F-08 | 관리자 대시보드 | 통계, 분류 현황, 에스컬레이션 비율 시각화 | Should | F-04, F-06 | PG-2 | Dashboard 컴포넌트, analytics_service | M3 | ✅ 완료 |
 | F-09 | 고객 만족도 피드백 | 대화 종료 후 만족도 평가 (좋음/나쁨) | Should | F-04 | PG-2 | feedback, conversation | M3 | ✅ 완료 |
-| F-10 | 다국어 지원 | 한국어/영어 자동 감지 및 답변 | Could | F-02, F-03 | - | openai_service, i18n | M4 | ⏳ 대기 |
+| F-10 | 다국어 지원 | 한국어/영어 자동 감지 및 답변 | Could | F-02, F-03 | - | openai_service, i18n | M4 | ✅ 완료 |
 
 ---
 
