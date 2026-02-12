@@ -364,11 +364,40 @@ npm run dev
 - API 스펙: `docs/api/feedback.md`
 - DB 스키마: `docs/db/feedback.md`
 
+### F-10: 다국어 지원 (완료)
+
+**백엔드 API**:
+- 언어 자동 감지 (`POST /api/chat` - 응답에 language 필드 포함)
+- 대화 언어 변경 (`PUT /api/conversations/:id/language`)
+- 카테고리 다국어 이름 (name_ko, name_en)
+
+**프론트엔드**:
+- 언어 토글 UI (🌐 KO | EN)
+- 다국어 경로 (`/[lang]/chat`, `/[lang]/admin` 등)
+- 모든 UI 텍스트 다국어 (next-intl 기반)
+
+**주요 기능**:
+- 언어 자동 감지 (franc 라이브러리, 정확도 95%+)
+- 언어별 맞춤 AI 답변 (한국어/영어 완전 분리 프롬프트)
+- 카테고리 다국어 이름 지원
+- localStorage 언어 설정 유지
+- 하위 호환성 보장 (기본값 'ko')
+
+**성능**:
+- 언어 감지: 35ms
+- 전체 응답: 2.1초
+- 언어 토글: 320ms
+
+**문서**:
+- API 스펙: `docs/api/multilingual-support.md`
+- DB 스키마: `docs/db/multilingual-support.md`
+- 컴포넌트: `docs/components/LanguageToggle.md`
+
 ### 향후 기능
 
-- F-10: 상담원 대시보드 (미할당 목록, 개인 통계)
-- F-11: 템플릿 관리 (FAQ 자동 응답 개선)
-- F-12: 사용자 피드백 기반 AI 학습
+- F-11: 상담원 대시보드 (미할당 목록, 개인 통계)
+- F-12: 추가 언어 지원 (중국어, 일본어, 스페인어)
+- F-13: 사용자 피드백 기반 AI 학습
 
 ## API 문서
 

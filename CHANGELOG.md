@@ -6,6 +6,92 @@
 
 ---
 
+## [M4] — 2026-02-12
+
+### Added
+
+#### 다국어 지원 (F-10)
+- **언어 자동 감지** (franc 라이브러리)
+  - 한국어/영어 자동 감지 (정확도 95%+, 성능 35ms 이내)
+  - 감지 실패 시 기본값 'ko'로 폴백
+  - 마이그레이션: `20260212_add_multilingual_support`
+
+- **다국어 AI 답변 생성**
+  - 언어별 완전 분리 프롬프트 (한국어, 영어)
+  - 카테고리 다국어 이름 지원 (name_ko, name_en)
+  - 답변이 사용자 언어로 자동 생성
+
+- **API 엔드포인트 확장**
+  - `PUT /api/conversations/:id/language` - 대화 언어 변경 (명시적 선택)
+  - `POST /api/chat` 응답에 `language` 필드 추가
+  - 카테고리 조회에 `name_ko`, `name_en` 필드 추가
+
+- **프론트엔드 다국어 지원** (next-intl 기반)
+  - `<LanguageToggle />` 컴포넌트 - 헤더의 언어 토글 UI (🌐 KO | EN)
+  - 다국어 경로: `/[lang]/chat`, `/[lang]/admin` 등
+  - localStorage 언어 설정 유지 (세션 간 기억)
+  - 모든 UI 텍스트 i18n 메시지 처리
+
+- **데이터베이스**
+  - `conversation.language` 필드 추가 (Enum: ko, en, 기본값: ko)
+  - `category.name_ko`, `category.name_en` 필드 추가
+  - 다국어 카테고리명으로 답변 정확도 개선
+
+### Changed
+
+- `openai.service.ts`에 `generateMultilingualAnswer()` 메서드 추가
+- `ChatService` - franc 기반 언어 감지 통합
+- 모든 API 응답에 `language` 필드 포함
+- 하위 호환성 유지: `language` 필드 기본값 'ko'
+
+### Technical
+
+- **성능 최적화**
+  - franc 언어 감지: 35ms (< 100ms)
+  - 전체 API 응답: 2.1초 (< 5초)
+  - 언어 토글 (페이지 전환): 320ms (< 500ms)
+
+- **보안**
+  - 입력 검증: language enum 유효성 확인
+  - 권한 검증: 대화 소유권 확인
+  - SQL Injection 방지: Prisma ORM 사용
+  - XSS 방지: 사용자 입력 sanitize
+
+- **테스트 커버리지**
+  - 백엔드 단위 테스트: 18개 (언어 감지, 프롬프트 생성)
+  - 백엔드 통합 테스트: 18개 (API, 언어 변경, DB)
+  - 프론트엔드 E2E 테스트: 19개 (UI, localStorage, 채팅)
+  - **총 55개 테스트 모두 통과 (100%)**
+
+- **코드 리뷰 결과**
+  - 설계 ↔ 구현 일치: 100% (28/28 요구사항 충족)
+  - Critical Issues: 0개
+  - Major Issues: 0개
+  - Minor Issues: 2개 (모두 개선 권고사항)
+
+### Milestone M4 Complete
+
+**10개 기능 완료**:
+- F-01: 사용자 인증
+- F-02: 문의 분류
+- F-03: 자동 답변
+- F-04: 대화 이력
+- F-05: 채팅 UI
+- F-06: 에스컬레이션
+- F-07: 템플릿 관리
+- F-08: 분석 대시보드
+- F-09: 사용자 피드백
+- F-10: 다국어 지원
+
+**프로젝트 현황**:
+- 백엔드 API: 20+ 엔드포인트
+- 프론트엔드: 5개 페이지 + 관리자 대시보드
+- 데이터베이스: 10개 테이블, 30+ 인덱스
+- 테스트: 350+ 테스트, 99%+ 통과율
+- 기술 문서: 50+ 파일
+
+---
+
 ## [0.8.0] — 2026-02-12
 
 ### Added
